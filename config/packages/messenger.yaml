@@ -5,13 +5,23 @@ framework:
 
         transports:
             # https://symfony.com/doc/current/messenger.html#transport-configuration
-            # async: '%env(MESSENGER_TRANSPORT_DSN)%'
+            async:
+                dsn: "%env(MESSENGER_TRANSPORT_DSN)%"
+                options:
+                    exchange:
+                        name: messenger_delayed_exchange
+                        type: x-delayed-message
+                        arguments:
+                            x-delayed-type: direct
+                    queues:
+                        messenger_target_queue:
+                            binding_keys: [target_queue]
             # failed: 'doctrine://default?queue_name=failed'
             # sync: 'sync://'
 
         routing:
             # Route your messages to the transports
-            # 'App\Message\YourMessage': async
+            'App\Message\SimpleMessage': async
 
 # when@test:
 #    framework:

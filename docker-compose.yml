@@ -13,3 +13,14 @@ services:
     volumes:
       - "./enabled_plugins:/etc/rabbitmq/enabled_plugins"
       - "./rabbitmq_delayed_message_exchange-3.10.2.ez:/plugins/rabbitmq_delayed_message_exchange-3.10.2.ez"
+
+  php-service:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: php-container
+    ports:
+      - 9000:9000
+    volumes:
+      - .:/var/www/project
+      - ./docker/php/messenger-worker.conf:/etc/supervisor/conf.d/messenger-worker.conf
