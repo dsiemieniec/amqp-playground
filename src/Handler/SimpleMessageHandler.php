@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Message;
+namespace App\Handler;
 
+use App\Message\SimpleMessage;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]

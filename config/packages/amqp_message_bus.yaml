@@ -1,0 +1,68 @@
+amqp_message_bus:
+  auto_declare: true
+  connections:
+    default:
+      host: '%env(RABBIT_CONNECTION)%'
+      port: '%env(RABBIT_PORT)%'
+      user: '%env(RABBIT_USER)%'
+      password: '%env(RABBIT_PASSWORD)%'
+      keep_alive: true
+      heartbeat: 60
+    second:
+      host: '%env(RABBIT_CONNECTION)%'
+      port: '%env(RABBIT_PORT)%'
+      user: '%env(RABBIT_USER)%'
+      password: '%env(RABBIT_PASSWORD)%'
+      vhost: 'test_vhost'
+      keep_alive: true
+      heartbeat: 60
+  exchanges:
+    test_exchange_name:
+      connection: second
+      name: test_exchange
+      type: direct
+      queue_bindings:
+        - { queue: second_queue_name, routing_key: test_routing_key }
+    delayed_exchange:
+      name: delayed_exchange
+      type: x-delayed-message
+      arguments:
+        x-delayed-type: direct
+      queue_bindings:
+        - { queue: first_queue_name, routing_key: another_simple_command }
+  queues:
+    first_queue_name:
+      connection: default
+      name: first_queue
+      consumer:
+        time_limit: 30
+    second_queue_name:
+      connection: second
+      name: second_queue
+      passive: false
+      durable: false
+      exclusive: false
+      auto_delete: false
+      consumer:
+        time_limit: 120
+    long_running:
+      connection: default
+      name: long_running
+    queue_with_arguments:
+      arguments:
+        x-message-ttl: 200
+  messages:
+    App\Command\AnotherSimpleCommand:
+      serializer: App\Serializer\SampleMessageSerializer
+      publisher:
+        exchange:
+          name: delayed_exchange
+          routing_key: another_simple_command
+    App\Command\DispatchedToOwnQueueCommand:
+      publisher:
+        exchange:
+          name: test_exchange_name
+          routing_key: test_routing_key
+    App\Command\LongRunningCommand:
+      publisher:
+        queue: long_running
