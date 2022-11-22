@@ -84,15 +84,18 @@ $channel->close();
 $connection->close();
 ```
 ## Symfony Messenger
-### Instalacja
+
+Teraz przyjrzymy się w jaki sposób należy skonfigurować symfony messenger, aby wykorzystać funkcjonalność pluginu Delayed message exchange.
+
+### Instalacja symfony messenger
 ```shell
 composer require symfony/messenger symfony/amqp-messenger
 ```
-### Wartość w pliku .env
+### Uzupełnie wartość w pliku .env
 ```
 MESSENGER_TRANSPORT_DSN=amqp://guest:guest@rabbitmq:5672/%2f/messages
 ```
-### Definicja wiadomości jako klasy
+### Definicja wiadomości jako klasy SimpleMessage
 ```php
 <?php
 
@@ -115,8 +118,9 @@ class SimpleMessage
 ```php
 <?php
 
-namespace App\Message;
+namespace App\Handler;
 
+use App\Message\SimpleMessage;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
@@ -165,8 +169,145 @@ $messageBus->dispatch(
     ]
 );
 ```
+
+## Amqp Message Bus
+
+W ostatniej części tego artykułu chciałbym przedstawić w jaki sposób można wykorzystać paczkę amqp message bus, której jestem autorem, we współpracy z rozszerzeniem delayed message exchange. Kod źródłowy oraz więcej informacji na temat zaimplementowanych rozwiązań w amqp mmessage bus znajduje się w repozytorium paczki https://github.com/dsiemieniec/amqp-message-bus.
+
+### Instalacja
+1. Dodanie repozytorium w composer.json
+```json
+"repositories": [
+    { "type": "vcs", "url": "https://github.com/dsiemieniec/amqp-message-bus" }
+]
+```
+2. Komenda instalacyjna
+```shell
+composer require dsiemieniec/amqp-message-bus
+```
+3. Wartości w .env
+```
+###> dsiemieniec/amqp-message-bus ###
+RABBIT_CONNECTION=rabbitmq
+RABBIT_PORT=5672
+RABBIT_USER=guest
+RABBIT_PASSWORD=guest
+###< dsiemieniec/amqp-message-bus ###
+```
+4. Plik `config/packages/amqp_message_bus.yaml` z podstawową konfiguracją
+```yaml
+amqp_message_bus:
+  connections:
+    default:
+      host: '%env(RABBIT_CONNECTION)%'
+      port: '%env(RABBIT_PORT)%'
+      user: '%env(RABBIT_USER)%'
+      password: '%env(RABBIT_PASSWORD)%'
+```
+5. Aktywacja bundle
+
+`config/bundles.php`
+```php
+<?php
+
+return [
+    ...
+    Siemieniec\AmqpMessageBus\AmqpMessageBus::class => ['all' => true],
+];
+```
+### Definicja wiadomości jako klasy SimpleMessage
+```php
+<?php
+
+namespace App\Message;
+
+class SimpleMessage
+{
+    public function __construct(
+        private string $message
+    ) {
+    }
+
+    public function getMessage(): string
+    {
+        return $this->message;
+    }
+}
+```
+Klasa ta niczym nie różni się od tej którą definiowaliśmy w sekcji symfony messenger.
+
+### Definicja "handlera" dla wiadomości
+```php
+<?php
+
+namespace App\Handler;
+
+use App\Message\SimpleMessage;
+use Siemieniec\AmqpMessageBus\Attributes\AsMessageHandler;
+
+#[AsMessageHandler]
+class SimpleMessageHandler
+{
+    public function __invoke(SimpleMessage $message): void
+    {
+        echo $message->getMessage() . PHP_EOL;
+    }
+}
+```
+Jedyna różnica w stosunku do "handlera" definiowanego w sekcji symmfony messenger to zmiana atrybutu na `Siemieniec\AmqpMessageBus\Attributes\AsMessageHandler`.
+### Konfiguracja w pliku amqp_message_bus.yaml
+```yaml
+amqp_message_bus:
+  connections:
+    default:
+      host: '%env(RABBIT_CONNECTION)%'
+      port: '%env(RABBIT_PORT)%'
+      user: '%env(RABBIT_USER)%'
+      password: '%env(RABBIT_PASSWORD)%'
+  queues:
+    target_queue:
+      name: message_bus_target_queue
+  exchanges:
+    delayed_exchange:
+      name: message_bus_delayed_exchange
+      type: x-delayed-message
+      arguments:
+        x-delayed-type: direct
+      queue_bindings:
+        - { queue: target_queue, routing_key: target_queue }
+  messages:
+    App\Message\SimpleMessage:
+      publisher:
+        exchange:
+          name: delayed_exchange
+          routing_key: target_queue
+```
+1. W sekcji `connections` definiujemy wymagane konfiguracje domyślnego połączenia.
+2. W sekcji `queues` dodajemy minimalną konfigurację kolejki do której będą trafiały wiadomości po upływie zadanego podczas publikacji czasu opóźnienia.
+3. W sekcji `exchanges` definiujemy konfigurację naszego exchange.
+4. W sekcji `messages` konfigurujemy "publisher" naszych wiadomości tak, aby wszystkie obiekty klasy `App\Message\SimpleMessage` były wysyłane do exchange `message_bus_delayed_exchange` z parametrem `routing_key` równym `target_queue`.
+
+### Deklaracja skonfigurowanego exchange i kolejki w rabbitmq
+Auto deklaracja kolejek oraz exchange'y podczas publikowania wiadomości jest domyślnie nieaktywna w konfiguracji amqp message bus, dlatego należy wykonać poniższe polecenie aby je zdefiniować
+```shell
+bin/console amqp-message-bus:setup-rabbit
+```
+### Publikowanie wiadomości
+```php
+$builder = \Siemieniec\AmqpMessageBus\Message\Properties\MessageProperties::builder();
+$properties = $builder->addHeader('x-delay', 1000)->build();
+/** @var Siemieniec\AmqpMessageBus\Message\MessagePublisherInterface $publisher */
+$publisher->publish(new SimpleMessage('Hello'), $properties);
+```
+Aby opublikować wiadomość z zadanym opóźniem musimy utworzyć obiekt klasy `Siemieniec\AmqpMessageBus\Message\Properties\MessageProperties` i dodać parametr `x-delay` który zostanie wysłany w nagłówku naszej wiadomości. Do utworzenia obiektu klasy `MessageProperties` wykorzystany został builder dostarczony w paczce, który zamyśle ma ułatwiać implementację po stronie aplikacji.
+
+## Zakończenie
+
+Dzięki za poświęcenie Twojego czasu i doczytanie do tego fragmentu. Miłego dnia :)
+
 ## Linki
 - [Artykuł na oficjalnym blogu RabbitMQ o pluginie "delayed message exchange"](https://blog.rabbitmq.com/posts/2015/04/scheduling-messages-with-rabbitmq)
 - [Dokumentacja RabbitMQ](https://www.rabbitmq.com/documentation.html)
 - [php-amqplib](https://github.com/php-amqplib/php-amqplib)
 - [Dodatkowe informacje o symfony messenger](https://symfony.com/doc/current/components/messenger.html)
+- [Repozytorium amqp message bus](https://github.com/dsiemieniec/amqp-message-bus)

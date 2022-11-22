@@ -1,0 +1,24 @@
+amqp_message_bus:
+  connections:
+    default:
+      host: '%env(RABBIT_CONNECTION)%'
+      port: '%env(RABBIT_PORT)%'
+      user: '%env(RABBIT_USER)%'
+      password: '%env(RABBIT_PASSWORD)%'
+  queues:
+    target_queue:
+      name: message_bus_target_queue
+  exchanges:
+    delayed_exchange:
+      name: message_bus_delayed_exchange
+      type: x-delayed-message
+      arguments:
+        x-delayed-type: direct
+      queue_bindings:
+        - { queue: target_queue, routing_key: target_queue }
+  messages:
+    App\Message\SimpleMessage:
+      publisher:
+        exchange:
+          name: delayed_exchange
+          routing_key: target_queue
