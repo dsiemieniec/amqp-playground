@@ -3,9 +3,11 @@
 namespace App\Handler;
 
 use App\Message\SimpleMessage;
-use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Siemieniec\AmqpMessageBus\Attributes\AsMessageHandler as AsAmqpBusMessageHandler;
+use Symfony\Component\Messenger\Attribute\AsMessageHandler as AsMessengerMessageHandler;
 
-#[AsMessageHandler]
+//#[AsMessengerMessageHandler]
+#[AsAmqpBusMessageHandler]
 class SimpleMessageHandler
 {
     public function __invoke(SimpleMessage $message): void
