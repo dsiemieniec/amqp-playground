@@ -1,5 +1,8 @@
 # Publikowanie wiadomości z wykorzystaniem pluginu "Delayed message exchange"
 
+## Wstęp
+....
+
 ## RabbitMQ Management UI
 ### Konfiguracja exchange
 1. Po zalogowaniu do panelu administracyjnego przechodzimy do zakładki "Exchanges"
@@ -43,6 +46,8 @@
 [<img src="img/message_rates.png" width="700"/>](img/message_rates.png)
 
 ## php-amqplib
+W tej sekcji odtworzymy operacje które wykonywaliśmy z wykorzystaniem Management UI za pomocą kodu napisanego w php. Do komunikacji rabbitmq wykrzystamy paczkę php-amqplib której kod źródłowy można znaleźć w repozytorium na [github](https://github.com/php-amqplib/php-amqplib)
+
 ### Instalacja
 ```shell
 composer require php-amqplib/php-amqplib
@@ -152,6 +157,8 @@ framework:
     routing:
       'App\Message\SimpleMessage': async
 ```
+1. W sekcji `transports` definiujemy exchange który będzie wykorzystywał typ `x-delayed-message` dodany przez plugin Delayed message exchange oraz kolejkę na którą trafią wiadomości po upływie czasu opóźnienia zadanego podczas publikacji wiadomości w aplikacji.
+2. W sekcji `routing` konfigurujemy gdzie mają trafiać obiekty klasy `App\Message\SimpleMessage`. W tym przypadku będzie to exchange o nazwie `essenger_delayed_exchange`.
 ### Publikowanie wiadomości
 ```php
 /** @var Symfony\Component\Messenger\MessageBusInterface $messageBus */
@@ -169,10 +176,11 @@ $messageBus->dispatch(
     ]
 );
 ```
+Aby wiadomość została przekazana na kolejkę z opóźnieniem musimy podczas publikowania wiadomości dodać argument `x-delay` w nagłówku wiadomości z wartością czasu opóźnienia w milisekundach. 
 
 ## Amqp Message Bus
 
-W ostatniej części tego artykułu chciałbym przedstawić w jaki sposób można wykorzystać paczkę amqp message bus, której jestem autorem, we współpracy z rozszerzeniem delayed message exchange. Kod źródłowy oraz więcej informacji na temat zaimplementowanych rozwiązań w amqp mmessage bus znajduje się w repozytorium paczki https://github.com/dsiemieniec/amqp-message-bus.
+W ostatniej części tego artykułu chciałbym przedstawić w jaki sposób można wykorzystać paczkę amqp message bus, której jestem autorem, we współpracy z rozszerzeniem delayed message exchange. Kod źródłowy oraz więcej informacji na temat zaimplementowanych rozwiązań w amqp mmessage bus znajduje się w repozytorium paczki na [github](https://github.com/dsiemieniec/amqp-message-bus).
 
 ### Instalacja
 1. Dodanie repozytorium w composer.json
@@ -254,7 +262,7 @@ class SimpleMessageHandler
     }
 }
 ```
-Jedyna różnica w stosunku do "handlera" definiowanego w sekcji symmfony messenger to zmiana atrybutu na `Siemieniec\AmqpMessageBus\Attributes\AsMessageHandler`.
+Jedyna różnica w stosunku do "handlera" definiowanego w sekcji symfony messenger to zmiana atrybutu na `Siemieniec\AmqpMessageBus\Attributes\AsMessageHandler`.
 ### Konfiguracja w pliku amqp_message_bus.yaml
 ```yaml
 amqp_message_bus:
@@ -303,7 +311,7 @@ Aby opublikować wiadomość z zadanym opóźniem musimy utworzyć obiekt klasy 
 
 ## Zakończenie
 
-Dzięki za poświęcenie Twojego czasu i doczytanie do tego fragmentu. Miłego dnia :)
+Dzięki za poświęcenie Twojego czasu i doczytanie do tego fragmentu. Mam nadzieję że podzielisz się ze mną swoimi odczuciami i sugestiami. Miłego dnia :)
 
 ## Linki
 - [Artykuł na oficjalnym blogu RabbitMQ o pluginie "delayed message exchange"](https://blog.rabbitmq.com/posts/2015/04/scheduling-messages-with-rabbitmq)
