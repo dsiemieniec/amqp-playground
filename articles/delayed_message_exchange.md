@@ -1,17 +1,26 @@
-# Publikowanie wiadomości z wykorzystaniem pluginu "Delayed message exchange"
+# Publikowanie wiadomości z wykorzystaniem rozszerzenia "Delayed message exchange"
 
-## Wstęp
-....
+Niejednokrotnie wymagania biznesowe, bądź komunikacja z zewnętrznymi serwisami wymuszają, aby wiadomości publikowane na kolejkę w RabbitMq były konsumowane z pewnym zadanym opóźnieniem. W tym artykule chciałbym pokazać jak można tego typu mechanizm zaimplementować z wykorzystanie rozszerzenia dla RabbitMQ o nazwie "Delayed message exchange". 
+
+W kolejnych sekcjach opiszę w jaki sposób można zainstalować ten plugin, a także pokażę na przykładach w jaki sposób można skonfigurować exchange i kolejkę. W pierwszej części skupimy się na wykorzystaniu RabbitMQ Management UI. Następnie zainstalujemy i skonfigurujemy powszechnie wykorzystywaną paczkę php-amqplib która umożliwia komunikację z RabbitMQ w aplikacjach korzystających z języka PHP. W kolejnej sekcji przejdziemy do przykładów konfiguracji bundle'a symfony messenger, który jest szeroko wykorzystywany w aplikacjach zbudowanych w oparciu o framework symfony. Na koniec opiszę w jaki sposób można taki sam efekt jak w przypadku symfony messengera uzyskać z wykorzystaniem bundle'a amqp message bus mojego autorstwa.
+
+## Instalacja i aktywacja Delayed message exchange
+1. Ze [strony](https://www.rabbitmq.com/community-plugins.html) na której znajdują się wszystkie dostępne rozszerzenia należy pobrać plik *.ez dla rabbitmq_delayed_message_exchange.
+2. Pobrany plik należy umieścić w katalogu `/usr/lib/rabbitmq/plugins`
+3. Aktywować rozszerzenie komendą
+```shell
+rabbitmq-plugins enable rabbitmq_delayed_message_exchange
+```
 
 ## RabbitMQ Management UI
 ### Konfiguracja exchange
-1. Po zalogowaniu do panelu administracyjnego przechodzimy do zakładki "Exchanges"
-2. Rozwijamy sekcję "Add a new exchange"
-3. Ustawiamy następujące parametry
-   1. Name: jako nazwę naszego exchange wpisujemy "delayed_exchange".
-   2. Type: z listy rozwijanej wybieramy wartość "x-delayed-message".  
-   3. W sekcji "Arguments" konfigurujemy paramert "x-delayed-type", która określa w jaki sposób exchange opublikuje wiadomość po upływie czasu opóźnienia. Możliwe wartości to direct, fanout i topic. W naszym przykładzie wybieramy typ direct.
-   4. Klikamy przycisk "Add exchange" i nasz exchange został zdefiniowany.
+1. Po zalogowaniu do panelu administracyjnego przechodzimy do zakładki "Exchanges".
+2. Rozwijamy sekcję "Add a new exchange".
+3. Ustawiamy następujące parametry:
+   * Name: jako nazwę naszego exchange wpisujemy "delayed_exchange",
+   * Type: z listy rozwijanej wybieramy wartość "x-delayed-message",
+   * W sekcji "Arguments" konfigurujemy parametr "x-delayed-type", który określa w jaki sposób exchange opublikuje wiadomość po upływie czasu opóźnienia. Możliwe wartości to direct, fanout i topic. W naszym przykładzie wybieramy typ direct,
+   * Klikamy przycisk "Add exchange" i nasz exchange został zdefiniowany.
 
 [<img src="img/declare_exchange.png" width="700"/>](img/declare_exchange.png)
 
@@ -24,29 +33,29 @@
 ### Powiązanie exchange i kolejki
 1. Wracamy do sekcji "Exchanges".
 2. Na liście znajdujemy wcześniej zdefiniowany exchange o nazwie "delayed_exchange" i przechodzimy do jego kofiguracji.
-3. W sekcji "Bindings" (którą należy rozwinąć jeśli jest domyślnie zwinięta) konfigurujemy powiązanie między exchange i kolejką
-   1. Z listy rozwijanej wybieramy wartość "To queue" i wpisujemy nazwę wcześniej zadeklarowanej kolejki, czyli "target_queue"
-   2. W polu "Routing key" wpisujemy wartość "target_queue". Wartość ta nie musi w żaden sposób zawierać w sobie nazwy kolejki. W związku z tym że w trakcie deklaracji exchange ustawiliśmy wartość argumentu "x-delayed-type" na direct to nasz exchange będzie wybierał kolejkę do której przekaże wiadomość po upływie czasu opóźnienia na podstawie wartości "Routing key".
-   3. Klikamy "Bind" i nasze połączenia zostało zdefiniowane.
+3. W sekcji "Bindings" (którą należy rozwinąć jeśli jest domyślnie zwinięta) konfigurujemy powiązanie między exchange i kolejką:
+   * Z listy rozwijanej wybieramy wartość "To queue" i wpisujemy nazwę wcześniej zadeklarowanej kolejki, czyli "target_queue",
+   * W polu "Routing key" wpisujemy wartość "target_queue". Wartość ta nie musi w żaden sposób zawierać w sobie nazwy kolejki. W związku z tym, że w trakcie deklaracji exchange ustawiliśmy wartość argumentu "x-delayed-type" na direct to nasz exchange będzie wybierał kolejkę do której przekaże wiadomość po upływie czasu opóźnienia na podstawie wartości "Routing key",
+   * Klikamy przycisk "Bind" i nasze połączenia zostało zdefiniowane.
 
 [<img src="img/exchange_queue_binding.png" width="700"/>](img/exchange_queue_binding.png)
 
 ### Publikowanie wiadomości
 1. Pozostajemy w konfiguracji naszego exchange i przechodzi do sekcji "Publish message".
-2. Wpisujemy następujące wartości
-   1. W sekcji routing key podajemy wartość ustawioną podczas tworzenia połączenia między kolejką i exchange. W naszym przypadku jest to wartość "target_queue".
-   2. W sekcji headers dodajemy nagłówek "x-delay", który umożliwia nam zdefiniowanie czasu opóźnienia z jakim wiadomość zostanie przekazana na docelową kolejkę. Wartość opóźnienia podajemy w milisekundach. W naszym wypadku chcemy aby wiadomość została przekazana na kolejkę po 10s czyli wpisujemy wartość 10000.
-   3. Naszą wiadomość podajemy w sekcji "Payload". W tym przypadku jest to po prostu "Test message".
+2. Wpisujemy następujące wartości:
+   * W sekcji routing key podajemy wartość ustawioną podczas tworzenia połączenia między kolejką i exchange. W naszym przypadku jest to wartość "target_queue".
+   * W sekcji headers dodajemy nagłówek "x-delay", który umożliwia nam zdefiniowanie czasu opóźnienia z jakim wiadomość zostanie przekazana na docelową kolejkę. Wartość opóźnienia podajemy w milisekundach. W naszym wypadku chcemy, aby wiadomość została przekazana na kolejkę po 10s czyli wpisujemy wartość 10000,
+   * Naszą wiadomość podajemy w sekcji "Payload". W tym przypadku jest to po prostu "Test message",
 [<img src="img/publish_message.png" width="700"/>](img/publish_message.png)
-   4. Po kliknięciu przycisku "Publish message" pojawi się informacja o tym, że wiadomość została pomyślnie dostarczona do exchange, ale w związku z tym że podaliśmy wartość "x-delay" to nie została ona jeszcze przekazana na docelową kolejkę.
+   * Po kliknięciu przycisku "Publish message" pojawi się informacja o tym, że wiadomość została pomyślnie dostarczona do exchange, ale w związku z tym, że podaliśmy wartość "x-delay" nie została ona jeszcze przekazana na docelową kolejkę,
 [<img src="img/published_confirmation.png" width="700"/>](img/published_confirmation.png)
-   5. W sekcji "Details", która znajduje się pod wykresem przedstawiającym przebieg czasowy liczby wiadomości wchodzący i wychodzących, możemy odczytać ile aktualnie wiadomości oczekuje w exchange (messages delayed).
+   * W sekcji "Details", która znajduje się pod wykresem przedstawiającym przebieg czasowy wiadomości wchodzący i wychodzących, możemy odczytać ile wiadomości aktualnie oczekuje w exchange (messages delayed),
 [<img src="img/details_messages_delayed.png" width="700"/>](img/details_messages_delayed.png)
-   6. Na wykresie możemy zauważyć że wiadomość została "zwolniona" z exchange po upływie 10s.
+   * Na wykresie możemy zauważyć, że wiadomość została przekazana na kolejkę po upływie 10s.
 [<img src="img/message_rates.png" width="700"/>](img/message_rates.png)
 
 ## php-amqplib
-W tej sekcji odtworzymy operacje które wykonywaliśmy z wykorzystaniem Management UI za pomocą kodu napisanego w php. Do komunikacji rabbitmq wykrzystamy paczkę php-amqplib której kod źródłowy można znaleźć w repozytorium na [github](https://github.com/php-amqplib/php-amqplib)
+W tej sekcji odtworzymy za pomocą kodu napisanego w php wszystko to co udało nam się poprzez Management UI. Do komunikacji z rabbitmq wykorzystamy paczkę php-amqplib której kod źródłowy można znaleźć w repozytorium na [github](https://github.com/php-amqplib/php-amqplib).
 
 ### Instalacja
 ```shell
@@ -96,7 +105,7 @@ Teraz przyjrzymy się w jaki sposób należy skonfigurować symfony messenger, a
 ```shell
 composer require symfony/messenger symfony/amqp-messenger
 ```
-### Uzupełnie wartość w pliku .env
+### Dodanie konfiguracji w pliku .env
 ```
 MESSENGER_TRANSPORT_DSN=amqp://guest:guest@rabbitmq:5672/%2f/messages
 ```
@@ -180,7 +189,7 @@ Aby wiadomość została przekazana na kolejkę z opóźnieniem musimy podczas p
 
 ## Amqp Message Bus
 
-W ostatniej części tego artykułu chciałbym przedstawić w jaki sposób można wykorzystać paczkę amqp message bus, której jestem autorem, we współpracy z rozszerzeniem delayed message exchange. Kod źródłowy oraz więcej informacji na temat zaimplementowanych rozwiązań w amqp mmessage bus znajduje się w repozytorium paczki na [github](https://github.com/dsiemieniec/amqp-message-bus).
+W ostatniej części tego artykułu chciałbym przedstawić w jaki sposób można wykorzystać paczkę amqp message bus we współpracy z rozszerzeniem delayed message exchange. Kod źródłowy oraz więcej informacji na temat zaimplementowanych rozwiązań w amqp mmessage bus znajduje się w repozytorium paczki na [github](https://github.com/dsiemieniec/amqp-message-bus).
 
 ### Instalacja
 1. Dodanie repozytorium w composer.json
@@ -307,11 +316,13 @@ $properties = $builder->addHeader('x-delay', 1000)->build();
 /** @var Siemieniec\AmqpMessageBus\Message\MessagePublisherInterface $publisher */
 $publisher->publish(new SimpleMessage('Hello'), $properties);
 ```
-Aby opublikować wiadomość z zadanym opóźniem musimy utworzyć obiekt klasy `Siemieniec\AmqpMessageBus\Message\Properties\MessageProperties` i dodać parametr `x-delay` który zostanie wysłany w nagłówku naszej wiadomości. Do utworzenia obiektu klasy `MessageProperties` wykorzystany został builder dostarczony w paczce, który zamyśle ma ułatwiać implementację po stronie aplikacji.
+Aby opublikować wiadomość z zadanym opóźniem musimy utworzyć obiekt klasy `Siemieniec\AmqpMessageBus\Message\Properties\MessageProperties` i dodać parametr `x-delay` który zostanie wysłany w nagłówku naszej wiadomości. Do utworzenia obiektu klasy `MessageProperties` wykorzystany został builder dostarczony w paczce, który w zamyśle ma ułatwiać implementację po stronie aplikacji.
 
 ## Zakończenie
 
-Dzięki za poświęcenie Twojego czasu i doczytanie do tego fragmentu. Mam nadzieję że podzielisz się ze mną swoimi odczuciami i sugestiami. Miłego dnia :)
+Wszystkie powyższe przykłady kodu znajdziesz w repozytorium [amqp-playground](https://github.com/dsiemieniec/amqp-playground). Zachęcam do pobrania znajdującego się tam kodu i sprawdzenia własnoręcznie jak działa rozszerzenie Delayed message exchange w różnych przypadkach. Mam nadzieję, że podzielisz się ze mną swoimi odczuciami i sugestiami.
+
+Miłego dnia :)
 
 ## Linki
 - [Artykuł na oficjalnym blogu RabbitMQ o pluginie "delayed message exchange"](https://blog.rabbitmq.com/posts/2015/04/scheduling-messages-with-rabbitmq)
@@ -319,3 +330,4 @@ Dzięki za poświęcenie Twojego czasu i doczytanie do tego fragmentu. Mam nadzi
 - [php-amqplib](https://github.com/php-amqplib/php-amqplib)
 - [Dodatkowe informacje o symfony messenger](https://symfony.com/doc/current/components/messenger.html)
 - [Repozytorium amqp message bus](https://github.com/dsiemieniec/amqp-message-bus)
+- [Instrukcja instalacji rozszerzeń RabbitMQ](https://www.rabbitmq.com/installing-plugins.html)
