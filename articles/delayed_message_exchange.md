@@ -189,7 +189,7 @@ Aby wiadomość została przekazana na kolejkę z opóźnieniem musimy podczas p
 
 ## Amqp Message Bus
 
-W ostatniej części tego artykułu chciałbym przedstawić w jaki sposób można wykorzystać paczkę amqp message bus we współpracy z rozszerzeniem delayed message exchange. Kod źródłowy oraz więcej informacji na temat zaimplementowanych rozwiązań w amqp mmessage bus znajduje się w repozytorium paczki na [github](https://github.com/dsiemieniec/amqp-message-bus).
+W ostatniej części tego artykułu chciałbym przedstawić w jaki sposób można wykorzystać paczkę amqp message bus we współpracy z rozszerzeniem delayed message exchange. Kod źródłowy oraz więcej informacji na temat zaimplementowanych rozwiązań w amqp message bus znajduje się w repozytorium paczki na [github](https://github.com/dsiemieniec/amqp-message-bus).
 
 ### Instalacja
 1. Dodanie repozytorium w composer.json
